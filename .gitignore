@@ -1,0 +1,27 @@
+# ===== 全局 =====
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# ===== 后端 =====
+film-recommend-backend/target/
+film-recommend-backend/*.jar
+film-recommend-backend/*.war
+
+# 敏感配置（含真实密钥，不提交）
+**/application-local.yml
+**/application-prod.yml
+**/*-local.yml
+**/*-prod.yml
+
+# ===== 前端 =====
+film-recommend-frontend/node_modules/
+film-recommend-frontend/dist/
+film-recommend-frontend/.env.local
+film-recommend-frontend/.env.*.local
