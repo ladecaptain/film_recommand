@@ -175,38 +175,109 @@ public class RecommendService {
     }
 
     public Movie getRandomPick(Long userId) {
+        return getRandomPick(userId, Collections.emptySet());
+    }
+
+    public Movie getRandomPick(Long userId, Set<Long> excludeTmdbIds) {
         if (userId == null) {
             List<Movie> popular = tmdbService.getPopularMovies(1);
+            popular.removeIf(m -> excludeTmdbIds.contains(m.getTmdbId()));
             if (!popular.isEmpty()) {
                 Movie m = popular.get((int) (Math.random() * popular.size()));
+                m = enrichWithDetail(m);
                 m.setPosterUrl(tmdbApiUtil.getImageUrl(m.getPosterPath(), "w500"));
                 return m;
             }
             return null;
         }
 
-        List<WatchRecord> allRecords = recordMapper.selectList(new LambdaQueryWrapper<WatchRecord>()
+        // 获取用户所有记录
+        List<WatchRecord> allUserRecords = recordMapper.selectList(new LambdaQueryWrapper<WatchRecord>()
             .eq(WatchRecord::getUserId, userId));
-        Set<Long> excludeIds = allRecords.stream().map(WatchRecord::getMovieId).collect(Collectors.toSet());
+        Set<Long> excludeLocalIds = allUserRecords.stream()
+            .map(WatchRecord::getMovieId).collect(Collectors.toSet());
 
-        // 用推荐候选池，排除看过的，随机抽
-        Map<String, Object> rec = recommendForUser(userId);
-        @SuppressWarnings("unchecked")
-        List<Movie> candidates = (List<Movie>) rec.get("movies");
-        candidates.removeIf(m -> excludeIds.contains(m.getId()));
+        // 统计类型偏好（看过+想看）
+        Map<String, Integer> genreCount = new LinkedHashMap<>();
+        for (WatchRecord r : allUserRecords) {
+            Movie m = movieMapper.selectById(r.getMovieId());
+            if (m == null || m.getGenres() == null) continue;
+            int weight = r.getStatus() == 2 ? 2 : 1;
+            for (String g : m.getGenres().split(",")) {
+                String t = g.trim();
+                if (!t.isEmpty()) genreCount.merge(t, weight, Integer::sum);
+            }
+        }
 
-        if (candidates.isEmpty()) {
+        List<String> topGenres = genreCount.entrySet().stream()
+            .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+            .limit(5)
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
+
+        if (topGenres.isEmpty()) {
+            topGenres = List.of("动作", "科幻", "剧情");
+        }
+
+        // 构建大候选池：每个 Top 类型拉 3 页
+        Map<Long, Movie> pool = new LinkedHashMap<>();
+        for (String genre : topGenres) {
+            Integer genreId = TmdbService.GENRE_ID_MAP.get(genre);
+            if (genreId == null) continue;
+            for (int page = 1; page <= 3; page++) {
+                List<Movie> list = tmdbService.discoverMovies(
+                    String.valueOf(genreId), "popularity.desc", null, page);
+                for (Movie m : list) {
+                    if (m.getVoteAverage() != null
+                        && m.getVoteAverage().compareTo(BigDecimal.valueOf(6.5)) >= 0
+                        && !excludeLocalIds.contains(m.getId())
+                        && !excludeTmdbIds.contains(m.getTmdbId())) {
+                        pool.putIfAbsent(m.getTmdbId(), m);
+                    }
+                }
+            }
+        }
+
+        // 候选不够则补充热门
+        if (pool.size() < 10) {
+            for (int page = 1; page <= 2; page++) {
+                for (Movie m : tmdbService.getPopularMovies(page)) {
+                    if (!excludeLocalIds.contains(m.getId())
+                        && !excludeTmdbIds.contains(m.getTmdbId())) {
+                        pool.putIfAbsent(m.getTmdbId(), m);
+                    }
+                }
+            }
+        }
+
+        if (pool.isEmpty()) {
             List<Movie> popular = tmdbService.getPopularMovies(1);
             if (!popular.isEmpty()) {
                 Movie m = popular.get((int) (Math.random() * popular.size()));
+                m = enrichWithDetail(m);
                 m.setPosterUrl(tmdbApiUtil.getImageUrl(m.getPosterPath(), "w500"));
                 return m;
             }
             return null;
         }
 
+        List<Movie> candidates = new ArrayList<>(pool.values());
         Movie pick = candidates.get((int) (Math.random() * candidates.size()));
+        pick = enrichWithDetail(pick);
         pick.setPosterUrl(tmdbApiUtil.getImageUrl(pick.getPosterPath(), "w500"));
         return pick;
+    }
+
+    private Movie enrichWithDetail(Movie m) {
+        Movie detail = tmdbService.getMovieDetail(m.getTmdbId());
+        if (detail != null) {
+            if (detail.getOverview() != null && !detail.getOverview().isEmpty()) {
+                m.setOverview(detail.getOverview());
+            }
+            if (detail.getDirector() != null) m.setDirector(detail.getDirector());
+            if (detail.getCast() != null) m.setCast(detail.getCast());
+            if (detail.getRuntime() != null) m.setRuntime(detail.getRuntime());
+        }
+        return m;
     }
 }

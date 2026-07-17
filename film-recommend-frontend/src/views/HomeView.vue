@@ -43,8 +43,8 @@
     <!-- 随机盲盒 - 全屏遮罩 -->
     <Teleport to="body">
       <Transition name="blindbox">
-        <div v-if="showRandomBox" class="blindbox-overlay" @click.self="showRandomBox = false">
-          <button class="bb-close" @click="showRandomBox = false">✕</button>
+        <div v-if="showRandomBox" class="blindbox-overlay" @click.self="closeBlindBox">
+          <button class="bb-close" @click="closeBlindBox">✕</button>
 
           <!-- 阶段1：抽取中 -->
           <div v-if="bbPhase === 'spinning'" class="bb-spinning">
@@ -165,6 +165,7 @@ const showRandomBox = ref(false)
 const randMovie = ref<Movie | null>(null)
 const bbPhase = ref<'spinning' | 'reveal'>('spinning')
 const bbFlipped = ref(false)
+const shownIds = new Set<number>()
 
 // === 热门区域 ===
 const sortBy = ref('popularity.desc')
@@ -208,7 +209,8 @@ async function openBlindBox() {
   bbFlipped.value = false
   randMovie.value = null
 
-  try { randMovie.value = await recommendApi.getRandomPick() } catch { /* no-op */ }
+  try { randMovie.value = await recommendApi.getRandomPick([...shownIds]) } catch { /* no-op */ }
+  if (randMovie.value?.tmdbId) shownIds.add(randMovie.value.tmdbId)
 
   setTimeout(() => {
     bbPhase.value = 'reveal'
@@ -223,7 +225,8 @@ async function fetchRandom() {
   bbFlipped.value = false
   randMovie.value = null
 
-  try { randMovie.value = await recommendApi.getRandomPick() } catch { /* no-op */ }
+  try { randMovie.value = await recommendApi.getRandomPick([...shownIds]) } catch { /* no-op */ }
+  if (randMovie.value?.tmdbId) shownIds.add(randMovie.value.tmdbId)
 
   setTimeout(() => {
     bbPhase.value = 'reveal'
@@ -235,9 +238,14 @@ async function fetchRandom() {
 
 function goToDetail() {
   if (randMovie.value) {
-    showRandomBox.value = false
+    closeBlindBox()
     router.push(`/movie/${randMovie.value.tmdbId}`)
   }
+}
+
+function closeBlindBox() {
+  showRandomBox.value = false
+  shownIds.clear()
 }
 
 function toggleGenre(id: number) {
@@ -429,7 +437,7 @@ onBeforeUnmount(() => observer?.disconnect())
 // 卡片翻转
 .bb-card {
   perspective: 1000px;
-  width: 300px; height: 500px;
+  width: 300px; height: 480px;
 }
 .bb-card-inner {
   position: relative; width: 100%; height: 100%;
@@ -442,11 +450,12 @@ onBeforeUnmount(() => observer?.disconnect())
   position: absolute; inset: 0;
   backface-visibility: hidden;
   border-radius: 16px;
-  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
 }
 .bb-card-front {
   background: linear-gradient(135deg, var(--bg-card), var(--bg-secondary));
   border: 2px solid var(--accent-gold);
+  display: flex; align-items: center; justify-content: center;
 }
 .bb-question {
   font-size: 80px; color: var(--accent-gold); font-weight: 700;
@@ -456,29 +465,39 @@ onBeforeUnmount(() => observer?.disconnect())
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   transform: rotateY(180deg);
-  flex-direction: column; align-items: center; padding: 24px;
-  overflow-y: auto; text-align: center;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 24px; text-align: center;
 }
 .bb-poster {
-  width: 180px; border-radius: 10px; margin-bottom: 16px; display: block;
+  width: 160px; border-radius: 10px; display: block;
+  flex-shrink: 0;
 }
 .bb-placeholder {
-  width: 180px; aspect-ratio: 2/3; border-radius: 10px; margin-bottom: 16px;
+  width: 160px; height: 240px; border-radius: 10px; flex-shrink: 0;
   background-color: var(--bg-secondary);
   display: flex; align-items: center; justify-content: center;
   color: var(--text-muted); font-size: 14px;
 }
-.bb-movie-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.bb-movie-title {
+  font-size: 17px; font-weight: 700; margin-top: 14px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 100%;
+}
 .bb-meta {
-  display: flex; gap: 12px; margin-bottom: 12px;
-  font-size: 13px; color: var(--text-muted);
+  display: flex; gap: 12px; margin-top: 6px;
+  font-size: 13px; color: var(--text-muted); flex-shrink: 0;
   .bb-score { color: var(--accent-gold); font-weight: 600; }
 }
 .bb-overview {
   font-size: 12px; color: var(--text-secondary); line-height: 1.6;
-  margin-bottom: 20px;
+  margin-top: 12px; flex: 1; min-height: 0;
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
+  overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
 }
-.bb-actions { display: flex; gap: 10px; }
+.bb-actions {
+  display: flex; gap: 10px; margin-top: 16px; flex-shrink: 0;
+}
 
 // 热门
 .filter-bar {
