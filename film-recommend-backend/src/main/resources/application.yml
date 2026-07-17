@@ -1,10 +1,10 @@
 spring:
   profiles:
-    active: dev
+    active: dev, local
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/film_recommend?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8mb4&createDatabaseIfNotExist=true
+    url: jdbc:mysql://localhost:3306/film_recommend?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8&createDatabaseIfNotExist=true
     username: root
     password: ${DB_PASSWORD:123456}
     hikari:
@@ -22,13 +22,16 @@ mybatis-plus:
 
 server:
   port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
 
 jwt:
   secret: ${JWT_SECRET:change-me-in-production}
   expiration: 604800000
 
 tmdb:
-  api-key: ${TMDB_API_KEY:your-tmdb-api-key}
   access-token: ${TMDB_ACCESS_TOKEN:your-tmdb-access-token}
   base-url: https://api.themoviedb.org/3
   image-base-url: https://image.tmdb.org/t/p

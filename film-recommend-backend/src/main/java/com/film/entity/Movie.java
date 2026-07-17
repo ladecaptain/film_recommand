@@ -26,4 +26,7 @@ public class Movie {
     private String cast;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
+
+    @TableField(exist = false)
+    private String posterUrl;
 }

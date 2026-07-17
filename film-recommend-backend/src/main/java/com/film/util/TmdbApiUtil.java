@@ -1,14 +1,20 @@
 package com.film.util;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.util.List;
 
 @Component
 public class TmdbApiUtil {
 
-    @Value("${tmdb.api-key}")
-    private String apiKey;
+    @Value("${tmdb.access-token}")
+    private String accessToken;
 
     @Value("${tmdb.base-url}")
     private String baseUrl;
@@ -16,22 +22,41 @@ public class TmdbApiUtil {
     @Value("${tmdb.image-base-url}")
     private String imageBaseUrl;
 
-    private final RestTemplate restTemplate;
+    @Value("${tmdb.proxy-host:}")
+    private String proxyHost;
 
-    public TmdbApiUtil() {
-        this.restTemplate = new RestTemplate();
-    }
+    @Value("${tmdb.proxy-port:0}")
+    private int proxyPort;
+
+    private RestTemplate restTemplate;
+
+    public TmdbApiUtil() {}
 
     public RestTemplate getRestTemplate() {
+        if (restTemplate == null) {
+            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(5000);
+            factory.setReadTimeout(10000);
+            if (proxyHost != null && !proxyHost.isEmpty() && proxyPort > 0) {
+                factory.setProxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort)));
+            }
+            restTemplate = new RestTemplate(factory);
+            // 使用 Bearer Token 认证（TMDb 推荐方式）
+            ClientHttpRequestInterceptor authInterceptor = (request, body, execution) -> {
+                request.getHeaders().setBearerAuth(accessToken);
+                return execution.execute(request, body);
+            };
+            restTemplate.setInterceptors(List.of(authInterceptor));
+        }
         return restTemplate;
     }
 
     public String buildUrl(String path) {
-        return baseUrl + path + "?api_key=" + apiKey + "&language=zh-CN";
+        return baseUrl + path + "?language=zh-CN";
     }
 
     public String buildUrl(String path, String extraParams) {
-        return baseUrl + path + "?api_key=" + apiKey + "&language=zh-CN&" + extraParams;
+        return baseUrl + path + "?language=zh-CN&" + extraParams;
     }
 
     public String getImageUrl(String posterPath, String size) {

@@ -11,5 +11,4 @@ jwt:
   secret: 生成一个强随机字符串（至少256位）
 
 tmdb:
-  api-key: 你的TMDb API Key
   access-token: 你的TMDb Access Token

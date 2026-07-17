@@ -10,7 +10,7 @@ export const movieApi = {
   getDetail(tmdbId: number) {
     return request.get(`/movies/${tmdbId}`)
   },
-  discover(params: { genres?: string; page?: number; sortBy?: string }) {
+  discover(params: { genres?: string; year?: string; page?: number; sortBy?: string }) {
     return request.get('/movies/discover', { params })
   },
 }

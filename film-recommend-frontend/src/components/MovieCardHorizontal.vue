@@ -18,7 +18,7 @@ import { getPosterUrl, POSTER_SIZES } from '@/utils/constants'
 
 const props = defineProps<{ movie: RecommendMovie; matchScore?: number; matchGenre?: string }>()
 
-const posterUrl = computed(() => getPosterUrl(props.movie.posterPath || null, POSTER_SIZES.small))
+const posterUrl = computed(() => props.movie.posterUrl || getPosterUrl(props.movie.posterPath || null, POSTER_SIZES.small))
 </script>
 
 <style scoped lang="scss">

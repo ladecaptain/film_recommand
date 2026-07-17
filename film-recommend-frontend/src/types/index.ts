@@ -13,6 +13,7 @@ export interface Movie {
   title: string
   originalTitle?: string
   posterPath?: string
+  posterUrl?: string
   overview?: string
   releaseDate?: string
   voteAverage: number
