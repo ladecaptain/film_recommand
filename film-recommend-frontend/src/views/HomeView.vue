@@ -9,33 +9,55 @@
 
       <p v-if="recReason" class="rec-reason">{{ recReason }}</p>
 
-      <div v-if="recLoading" class="recommend-scroll">
-        <div v-for="n in 5" :key="n" class="skel-h-card">
-          <div class="skel-poster"></div>
-          <div class="skel-line"></div>
+      <div v-if="recLoading" class="carousel-wrap">
+        <div class="carousel-track">
+          <div v-for="n in 5" :key="n" class="skel-h-card">
+            <div class="skel-poster"></div>
+            <div class="skel-line"></div>
+          </div>
         </div>
       </div>
 
       <div v-else-if="recError && recMovies.length === 0" class="empty-hint">{{ recError }}</div>
 
-      <div v-else class="recommend-scroll">
-        <div
-          v-for="movie in recMovies"
-          :key="movie.tmdbId"
-          class="rec-card"
-          @click="$router.push(`/movie/${movie.tmdbId}`)"
-        >
-          <div class="rec-poster">
-            <img v-if="movie.posterUrl" :src="movie.posterUrl" :alt="movie.title" />
-            <div v-else class="poster-ph">{{ movie.title?.charAt(0) }}</div>
-            <div v-if="movie.matchScore" class="match-tag">
-              {{ movie.matchScore }}% 匹配 · {{ movie.matchGenre }}
+      <div v-else class="carousel-wrap">
+        <div class="carousel-stage">
+          <button class="carousel-arrow left" @click="prevSlide">‹</button>
+
+          <div class="carousel-track" ref="carouselTrack">
+            <div
+              v-for="item in displaySlides"
+              :key="item.movie.tmdbId"
+              class="carousel-item"
+              :class="`pos-${item.pos}`"
+              @click="$router.push(`/movie/${item.movie.tmdbId}`)"
+            >
+              <div class="ci-poster">
+                <img v-if="item.movie.posterUrl" :src="item.movie.posterUrl" :alt="item.movie.title" />
+                <div v-else class="ci-placeholder">{{ item.movie.title?.charAt(0) }}</div>
+                <div v-if="item.pos === 0 && item.movie.matchScore" class="ci-match">
+                  {{ item.movie.matchScore }}% 匹配 · {{ item.movie.matchGenre }}
+                </div>
+              </div>
+              <div class="ci-info" v-if="Math.abs(item.pos) <= 1">
+                <h3 class="ci-title" v-if="item.pos === 0">{{ item.movie.title }}</h3>
+                <span class="ci-rating" v-if="item.pos === 0">{{ item.movie.voteAverage?.toFixed(1) }}</span>
+                <p class="ci-overview" v-if="item.pos === 0">{{ item.movie.overview?.substring(0, 60) }}{{ item.movie.overview && item.movie.overview.length > 60 ? '...' : '' }}</p>
+              </div>
             </div>
           </div>
-          <div class="rec-info">
-            <h4 class="rec-title">{{ movie.title }}</h4>
-            <span class="rec-rating">{{ movie.voteAverage?.toFixed(1) }}</span>
-          </div>
+
+          <button class="carousel-arrow right" @click="nextSlide">›</button>
+        </div>
+
+        <div class="carousel-dots">
+          <span
+            v-for="(movie, i) in recMovies"
+            :key="movie.tmdbId"
+            class="dot"
+            :class="{ active: i === activeIndex }"
+            @click="goToSlide(i)"
+          ></span>
         </div>
       </div>
     </section>
@@ -159,6 +181,29 @@ const recMovies = ref<Movie[]>([])
 const recReason = ref('')
 const recLoading = ref(true)
 const recError = ref('')
+const activeIndex = ref(0)
+
+const displaySlides = computed(() => {
+  const len = recMovies.value.length
+  if (len === 0) return []
+  const slides: { movie: Movie; pos: number }[] = []
+  for (let offset = -5; offset <= 4; offset++) {
+    let idx = (activeIndex.value + offset) % len
+    if (idx < 0) idx += len
+    slides.push({ movie: recMovies.value[idx], pos: offset })
+  }
+  return slides
+})
+
+function prevSlide() { activeIndex.value = (activeIndex.value - 1 + recMovies.value.length) % recMovies.value.length; resetTimer() }
+function nextSlide() { activeIndex.value = (activeIndex.value + 1) % recMovies.value.length; resetTimer() }
+function goToSlide(i: number) { activeIndex.value = i; resetTimer() }
+
+let carouselTimer: ReturnType<typeof setInterval> | null = null
+function resetTimer() {
+  if (carouselTimer) clearInterval(carouselTimer)
+  carouselTimer = setInterval(() => { nextSlide() }, 5000)
+}
 
 // === 盲盒 ===
 const showRandomBox = ref(false)
@@ -195,6 +240,8 @@ async function fetchRecommendations() {
     const res = await recommendApi.getRecommendations()
     recMovies.value = res.movies
     recReason.value = res.reason
+    activeIndex.value = 0
+    if (res.movies.length > 1) resetTimer()
   } catch {
     recError.value = '推荐加载失败'
   } finally {
@@ -302,7 +349,10 @@ onMounted(() => {
   if (sentinel.value) observer.observe(sentinel.value)
 })
 
-onBeforeUnmount(() => observer?.disconnect())
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  if (carouselTimer) clearInterval(carouselTimer)
+})
 </script>
 
 <style scoped lang="scss">
@@ -329,45 +379,114 @@ onBeforeUnmount(() => observer?.disconnect())
 }
 
 .rec-reason {
-  color: var(--text-secondary); font-size: 13px; margin-bottom: 16px;
+  color: var(--text-secondary); font-size: 13px; margin-bottom: 20px;
 }
 
-.recommend-scroll {
-  display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px;
-  &::-webkit-scrollbar { height: 4px; }
-  &::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 2px; }
+// === 推荐轮播 ===
+.carousel-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0 40px; margin-bottom: 40px;
 }
 
-.rec-card {
-  flex-shrink: 0; width: 150px; cursor: pointer;
+.carousel-stage {
+  position: relative;
+  height: 400px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%;
+}
+
+.carousel-track {
+  display: flex; align-items: center; justify-content: center;
+}
+
+.carousel-item {
+  flex-shrink: 0;
   border-radius: 10px; overflow: hidden;
-  background-color: var(--bg-card); border: 1px solid var(--border-color);
-  transition: transform 0.2s;
-  &:hover { transform: translateY(-4px); }
-}
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  margin: 0 2px;
 
-.rec-poster {
-  position: relative; aspect-ratio: 2/3; background-color: var(--bg-secondary);
-  img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .poster-ph {
-    width: 100%; height: 100%; display: flex; align-items: center;
-    justify-content: center; color: var(--text-muted); font-size: 28px;
+  &.pos-0 {
+    width: 220px; z-index: 5; opacity: 1; filter: none;
+    border-color: var(--accent-gold);
+    box-shadow: 0 8px 32px rgba(230, 185, 30, 0.2);
+  }
+  &.pos--1, &.pos-1 {
+    width: 180px; z-index: 4; opacity: 0.9; filter: brightness(0.8);
+  }
+  &.pos--2, &.pos-2 {
+    width: 145px; z-index: 3; opacity: 0.7; filter: brightness(0.65);
+  }
+  &.pos--3, &.pos-3 {
+    width: 115px; z-index: 2; opacity: 0.5; filter: brightness(0.5);
+  }
+  &.pos--4, &.pos-4 {
+    width: 90px; z-index: 1; opacity: 0.35; filter: brightness(0.35);
+  }
+  &.pos--5 {
+    width: 70px; z-index: 0; opacity: 0.2; filter: brightness(0.2);
+  }
+
+  &:hover {
+    opacity: 1 !important; filter: none !important;
+    z-index: 10 !important;
   }
 }
 
-.match-tag {
+.ci-poster {
+  position: relative; background-color: var(--bg-secondary);
+  img { width: 100%; display: block; }
+  .ci-placeholder {
+    aspect-ratio: 2/3; display: flex; align-items: center;
+    justify-content: center; color: var(--text-muted); font-size: 14px;
+  }
+}
+
+.ci-match {
   position: absolute; bottom: 0; left: 0; right: 0;
-  background: linear-gradient(transparent, rgba(0,0,0,0.8));
+  background: linear-gradient(transparent, rgba(0,0,0,0.85));
   color: var(--accent-gold); font-size: 11px; font-weight: 600;
-  padding: 20px 8px 6px;
+  padding: 20px 10px 6px;
 }
 
-.rec-info {
-  padding: 10px;
-  .rec-title { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
-  .rec-rating { font-size: 12px; color: var(--accent-gold); }
+.ci-info {
+  padding: 12px;
+  transition: opacity 0.3s;
+  .ci-title { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ci-rating { font-size: 14px; color: var(--accent-gold); font-weight: 600; margin: 2px 0; }
+  .ci-overview {
+    font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-top: 4px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 }
 
+// 箭头
+.carousel-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  background: rgba(31, 43, 71, 0.9); border: 1px solid var(--border-color);
+  color: var(--text-primary); font-size: 28px; width: 40px; height: 40px;
+  border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; z-index: 20;
+  &:hover { background: var(--accent-gold); color: #1a1a2e; border-color: var(--accent-gold); }
+  &.left { left: 0; }
+  &.right { right: 0; }
+}
+
+// 圆点
+.carousel-dots {
+  display: flex; gap: 8px; margin-top: 10px; 
+}
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background-color: var(--border-color); cursor: pointer;
+  transition: all 0.3s;
+  &.active { background-color: var(--accent-gold); width: 24px; border-radius: 4px; }
+}
+
+// 骨架
 .skel-h-card {
   flex-shrink: 0; width: 150px;
   .skel-poster {
