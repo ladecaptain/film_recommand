@@ -1,3 +1,9 @@
+# ===== 项目文档（完工前不提交） =====
+CLAUDE.md
+PRD.md
+TECH_DESIGN.md
+research.md
+
 # ===== 全局 =====
 .DS_Store
 Thumbs.db
