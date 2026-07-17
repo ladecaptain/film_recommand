@@ -29,4 +29,10 @@ public class Movie {
 
     @TableField(exist = false)
     private String posterUrl;
+
+    @TableField(exist = false)
+    private Integer matchScore;
+
+    @TableField(exist = false)
+    private String matchGenre;
 }

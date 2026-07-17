@@ -8,7 +8,6 @@
         <SearchBar />
       </div>
       <div class="header-right">
-        <el-button type="primary" round @click="showRandomBox = true">随机盲盒</el-button>
         <template v-if="userStore.isLoggedIn">
           <el-dropdown>
             <span class="user-menu">
@@ -34,12 +33,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import SearchBar from '@/components/SearchBar.vue'
 
 const userStore = useUserStore()
-const showRandomBox = ref(false)
 </script>
 
 <style scoped lang="scss">

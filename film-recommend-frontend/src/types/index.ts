@@ -22,6 +22,8 @@ export interface Movie {
   genres?: string
   director?: string
   cast?: string
+  matchScore?: number
+  matchGenre?: string
 }
 
 export interface WatchRecord {

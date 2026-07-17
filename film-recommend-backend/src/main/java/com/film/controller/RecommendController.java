@@ -6,7 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/recommend")
@@ -19,7 +19,7 @@ public class RecommendController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Movie>> getRecommendations(Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> getRecommendations(Authentication authentication) {
         Long userId = authentication != null ? (Long) authentication.getPrincipal() : null;
         return ResponseEntity.ok(recommendService.recommendForUser(userId));
     }
@@ -27,6 +27,7 @@ public class RecommendController {
     @GetMapping("/random")
     public ResponseEntity<Movie> getRandomPick(Authentication authentication) {
         Long userId = authentication != null ? (Long) authentication.getPrincipal() : null;
-        return ResponseEntity.ok(recommendService.getRandomPick(userId));
+        Movie pick = recommendService.getRandomPick(userId);
+        return pick != null ? ResponseEntity.ok(pick) : ResponseEntity.noContent().build();
     }
 }

@@ -28,6 +28,13 @@ public class TmdbService {
         GENRE_MAP.put(37, "西部");
     }
 
+    public static final Map<String, Integer> GENRE_ID_MAP = new LinkedHashMap<>();
+    static {
+        for (Map.Entry<Integer, String> e : GENRE_MAP.entrySet()) {
+            GENRE_ID_MAP.put(e.getValue(), e.getKey());
+        }
+    }
+
     private final TmdbApiUtil tmdb;
     private final MovieMapper movieMapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
