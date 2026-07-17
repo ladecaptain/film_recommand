@@ -6,29 +6,32 @@
 
       <el-tabs v-model="activeTab" class="login-tabs">
         <el-tab-pane label="登录" name="login">
-          <el-form :model="loginForm" label-position="top">
-            <el-form-item label="手机号 / 邮箱">
+          <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" label-position="top">
+            <el-form-item label="手机号 / 邮箱" prop="account">
               <el-input v-model="loginForm.account" placeholder="请输入手机号或邮箱" />
             </el-form-item>
-            <el-form-item label="密码">
-              <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" show-password />
+            <el-form-item label="密码" prop="password">
+              <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" show-password @keyup.enter="handleLogin" />
             </el-form-item>
-            <el-button type="primary" class="submit-btn" @click="handleLogin">登 录</el-button>
+            <el-button type="primary" class="submit-btn" :loading="loginLoading" @click="handleLogin">登 录</el-button>
           </el-form>
         </el-tab-pane>
 
         <el-tab-pane label="注册" name="register">
-          <el-form :model="registerForm" label-position="top">
-            <el-form-item label="昵称">
+          <el-form ref="registerFormRef" :model="registerForm" :rules="registerRules" label-position="top">
+            <el-form-item label="昵称" prop="nickname">
               <el-input v-model="registerForm.nickname" placeholder="给自己取个名字" />
             </el-form-item>
-            <el-form-item label="邮箱">
-              <el-input v-model="registerForm.email" placeholder="请输入邮箱" type="email" />
+            <el-form-item label="邮箱" prop="email">
+              <el-input v-model="registerForm.email" placeholder="请输入邮箱" />
             </el-form-item>
-            <el-form-item label="密码">
+            <el-form-item label="密码" prop="password">
               <el-input v-model="registerForm.password" type="password" placeholder="至少6位密码" show-password />
             </el-form-item>
-            <el-button type="primary" class="submit-btn" @click="handleRegister">注 册</el-button>
+            <el-form-item label="确认密码" prop="confirmPassword">
+              <el-input v-model="registerForm.confirmPassword" type="password" placeholder="请再次输入密码" show-password @keyup.enter="handleRegister" />
+            </el-form-item>
+            <el-button type="primary" class="submit-btn" :loading="registerLoading" @click="handleRegister">注 册</el-button>
           </el-form>
         </el-tab-pane>
       </el-tabs>
@@ -40,6 +43,9 @@
 import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { authApi } from '@/api/auth'
+import { ElMessage } from 'element-plus'
+import type { FormInstance, FormRules } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
@@ -47,21 +53,84 @@ const userStore = useUserStore()
 const activeTab = ref('login')
 
 const loginForm = reactive({ account: '', password: '' })
-const registerForm = reactive({ nickname: '', email: '', password: '' })
+const registerForm = reactive({ nickname: '', email: '', password: '', confirmPassword: '' })
+const loginLoading = ref(false)
+const registerLoading = ref(false)
+const loginFormRef = ref<FormInstance>()
+const registerFormRef = ref<FormInstance>()
+
+const loginRules: FormRules = {
+  account: [{ required: true, message: '请输入手机号或邮箱', trigger: 'blur' }],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码至少6位', trigger: 'blur' },
+  ],
+}
+
+const validateConfirm = (_rule: any, value: string, cb: any) => {
+  if (value !== registerForm.password) {
+    cb(new Error('两次输入的密码不一致'))
+  } else {
+    cb()
+  }
+}
+
+const registerRules: FormRules = {
+  nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' },
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码至少6位', trigger: 'blur' },
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认密码', trigger: 'blur' },
+    { validator: validateConfirm, trigger: 'blur' },
+  ],
+}
 
 async function handleLogin() {
+  const valid = await loginFormRef.value?.validate().catch(() => false)
+  if (!valid) return
+  loginLoading.value = true
   try {
     await userStore.login(loginForm.account, loginForm.password)
+    ElMessage.success('登录成功')
     const redirect = (route.query.redirect as string) || '/home'
     router.push(redirect)
-  } catch { /* error handled in interceptor */ }
+  } catch {
+    // 错误消息由拦截器统一展示
+  } finally {
+    loginLoading.value = false
+  }
 }
 
 async function handleRegister() {
+  const valid = await registerFormRef.value?.validate().catch(() => false)
+  if (!valid) return
+  registerLoading.value = true
   try {
-    // Will be implemented after backend is ready
-    router.push('/home')
-  } catch { /* error handled in interceptor */ }
+    await authApi.register({
+      email: registerForm.email,
+      password: registerForm.password,
+      nickname: registerForm.nickname,
+    })
+    ElMessage.success('注册成功，请登录')
+    loginForm.account = registerForm.email
+    loginForm.password = ''
+    registerForm.nickname = ''
+    registerForm.email = ''
+    registerForm.password = ''
+    registerForm.confirmPassword = ''
+    registerFormRef.value?.resetFields()
+    activeTab.value = 'login'
+  } catch {
+    // 错误消息由拦截器统一展示
+  } finally {
+    registerLoading.value = false
+  }
 }
 </script>
 

@@ -20,8 +20,11 @@ request.interceptors.response.use(
     const message = error.response?.data?.message || '请求失败，请稍后重试'
     ElMessage.error(message)
     if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
+      const isLoginPage = window.location.pathname === '/login'
+      if (!isLoginPage) {
+        localStorage.removeItem('token')
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   },

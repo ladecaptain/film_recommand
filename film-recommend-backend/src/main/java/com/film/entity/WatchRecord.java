@@ -21,4 +21,7 @@ public class WatchRecord {
     private LocalDateTime createTime;
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
+
+    @TableField(exist = false)
+    private Movie movie;
 }

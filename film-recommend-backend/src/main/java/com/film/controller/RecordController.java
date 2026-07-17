@@ -9,6 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/records")
@@ -21,24 +22,18 @@ public class RecordController {
     }
 
     @GetMapping
-    public ResponseEntity<List<WatchRecord>> getMyRecords(Authentication authentication) {
+    public ResponseEntity<List<WatchRecord>> getMyRecords(
+            Authentication authentication,
+            @RequestParam(required = false) Integer status) {
         Long userId = (Long) authentication.getPrincipal();
-        return ResponseEntity.ok(recordService.getMyRecords(userId));
+        return ResponseEntity.ok(recordService.getMyRecords(userId, status));
     }
 
     @PostMapping
-    public ResponseEntity<WatchRecord> createRecord(Authentication authentication,
-                                                     @Valid @RequestBody RecordRequest request) {
+    public ResponseEntity<WatchRecord> saveRecord(Authentication authentication,
+                                                   @Valid @RequestBody RecordRequest request) {
         Long userId = (Long) authentication.getPrincipal();
-        return ResponseEntity.ok(recordService.createRecord(userId, request));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<WatchRecord> updateRecord(@PathVariable Long id,
-                                                     Authentication authentication,
-                                                     @RequestBody RecordRequest request) {
-        Long userId = (Long) authentication.getPrincipal();
-        return ResponseEntity.ok(recordService.updateRecord(id, userId, request));
+        return ResponseEntity.ok(recordService.saveRecord(userId, request));
     }
 
     @DeleteMapping("/{id}")
@@ -47,5 +42,28 @@ public class RecordController {
         Long userId = (Long) authentication.getPrincipal();
         recordService.deleteRecord(id, userId);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/movie/{tmdbId}")
+    public ResponseEntity<WatchRecord> getMyRecord(Authentication authentication,
+                                                    @PathVariable Long tmdbId) {
+        Long userId = (Long) authentication.getPrincipal();
+        return ResponseEntity.ok(recordService.getMyRecordForMovie(userId, tmdbId));
+    }
+
+    @GetMapping("/movie/{tmdbId}/stats")
+    public ResponseEntity<Map<String, Object>> getMovieStats(@PathVariable Long tmdbId) {
+        return ResponseEntity.ok(recordService.getMovieStats(tmdbId));
+    }
+
+    @GetMapping("/movie/{tmdbId}/reviews")
+    public ResponseEntity<List<WatchRecord>> getMovieReviews(@PathVariable Long tmdbId) {
+        return ResponseEntity.ok(recordService.getMovieReviews(tmdbId));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getMyStats(Authentication authentication) {
+        Long userId = (Long) authentication.getPrincipal();
+        return ResponseEntity.ok(recordService.getMyStats(userId));
     }
 }
