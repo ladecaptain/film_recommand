@@ -22,8 +22,11 @@
             <el-form-item label="昵称" prop="nickname">
               <el-input v-model="registerForm.nickname" placeholder="给自己取个名字" />
             </el-form-item>
+            <el-form-item label="手机号" prop="phone">
+              <el-input v-model="registerForm.phone" placeholder="选填，用于登录" />
+            </el-form-item>
             <el-form-item label="邮箱" prop="email">
-              <el-input v-model="registerForm.email" placeholder="请输入邮箱" />
+              <el-input v-model="registerForm.email" placeholder="选填，用于登录（手机号或邮箱至少填一个）" />
             </el-form-item>
             <el-form-item label="密码" prop="password">
               <el-input v-model="registerForm.password" type="password" placeholder="至少6位密码" show-password />
@@ -53,7 +56,7 @@ const userStore = useUserStore()
 const activeTab = ref('login')
 
 const loginForm = reactive({ account: '', password: '' })
-const registerForm = reactive({ nickname: '', email: '', password: '', confirmPassword: '' })
+const registerForm = reactive({ nickname: '', phone: '', email: '', password: '', confirmPassword: '' })
 const loginLoading = ref(false)
 const registerLoading = ref(false)
 const loginFormRef = ref<FormInstance>()
@@ -77,8 +80,10 @@ const validateConfirm = (_rule: any, value: string, cb: any) => {
 
 const registerRules: FormRules = {
   nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
+  phone: [
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入有效的手机号', trigger: 'blur' },
+  ],
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
     { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' },
   ],
   password: [
@@ -110,17 +115,23 @@ async function handleLogin() {
 async function handleRegister() {
   const valid = await registerFormRef.value?.validate().catch(() => false)
   if (!valid) return
+  if (!registerForm.phone && !registerForm.email) {
+    ElMessage.warning('手机号或邮箱至少填一个')
+    return
+  }
   registerLoading.value = true
   try {
     await authApi.register({
-      email: registerForm.email,
+      phone: registerForm.phone || undefined,
+      email: registerForm.email || undefined,
       password: registerForm.password,
       nickname: registerForm.nickname,
     })
     ElMessage.success('注册成功，请登录')
-    loginForm.account = registerForm.email
+    loginForm.account = registerForm.phone || registerForm.email
     loginForm.password = ''
     registerForm.nickname = ''
+    registerForm.phone = ''
     registerForm.email = ''
     registerForm.password = ''
     registerForm.confirmPassword = ''

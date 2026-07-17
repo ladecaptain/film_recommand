@@ -39,6 +39,10 @@ public class UserService {
     }
 
     public Map<String, Object> register(RegisterRequest request) {
+        if ((request.getPhone() == null || request.getPhone().isBlank())
+            && (request.getEmail() == null || request.getEmail().isBlank())) {
+            throw new BusinessException("手机号或邮箱至少填一个");
+        }
         boolean exists = userMapper.exists(new LambdaQueryWrapper<User>()
             .eq(request.getPhone() != null, User::getPhone, request.getPhone())
             .or()

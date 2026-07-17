@@ -4,7 +4,7 @@
     <section class="recommend-section" v-if="!recError || recMovies.length > 0">
       <div class="section-header">
         <h2 class="section-title">✨ 猜你喜欢</h2>
-        <el-button type="primary" round @click="showRandomBox = true">🎲 随机盲盒</el-button>
+        <el-button type="primary" round @click="openBlindBox">🎲 随机盲盒</el-button>
       </div>
 
       <p v-if="recReason" class="rec-reason">{{ recReason }}</p>
@@ -40,26 +40,52 @@
       </div>
     </section>
 
-    <!-- 随机盲盒弹窗 -->
-    <el-dialog v-model="showRandomBox" :title="null" width="420px" center :close-on-click-modal="false" @opened="fetchRandom">
-      <div v-if="randLoading" class="rand-loading">
-        <el-icon class="loading-icon"><Loading /></el-icon>
-        <p>正在为你挑选...</p>
-      </div>
-      <div v-else-if="randMovie" class="rand-result">
-        <img v-if="randMovie.posterUrl" :src="randMovie.posterUrl" :alt="randMovie.title" class="rand-poster" />
-        <div v-else class="rand-placeholder">{{ randMovie.title }}</div>
-        <h3 class="rand-title">{{ randMovie.title }}</h3>
-        <p class="rand-overview">{{ randMovie.overview?.substring(0, 120) }}{{ randMovie.overview && randMovie.overview.length > 120 ? '...' : '' }}</p>
-        <div class="rand-actions">
-          <el-button @click="fetchRandom" :loading="randLoading">换一个</el-button>
-          <el-button type="primary" @click="goToDetail">查看详情 →</el-button>
+    <!-- 随机盲盒 - 全屏遮罩 -->
+    <Teleport to="body">
+      <Transition name="blindbox">
+        <div v-if="showRandomBox" class="blindbox-overlay" @click.self="showRandomBox = false">
+          <button class="bb-close" @click="showRandomBox = false">✕</button>
+
+          <!-- 阶段1：抽取中 -->
+          <div v-if="bbPhase === 'spinning'" class="bb-spinning">
+            <p class="bb-dice">🎲</p>
+            <p class="bb-title">天意正在为你决定...</p>
+            <div class="bb-swirl">
+              <span v-for="i in 5" :key="i" class="swirl-dot" :style="{ animationDelay: i * 0.15 + 's' }"></span>
+            </div>
+          </div>
+
+          <!-- 阶段2：卡片翻转展示 -->
+          <div v-else-if="bbPhase === 'reveal' && randMovie" class="bb-card" :class="{ flipped: bbFlipped }">
+            <div class="bb-card-inner">
+              <div class="bb-card-front">
+                <p class="bb-question">?</p>
+              </div>
+              <div class="bb-card-back">
+                <img v-if="randMovie.posterUrl" :src="randMovie.posterUrl" :alt="randMovie.title" class="bb-poster" />
+                <div v-else class="bb-placeholder">{{ randMovie.title }}</div>
+                <h3 class="bb-movie-title">{{ randMovie.title }}</h3>
+                <div class="bb-meta">
+                  <span class="bb-score">{{ randMovie.voteAverage?.toFixed(1) }} 分</span>
+                  <span v-if="randMovie.releaseDate">{{ randMovie.releaseDate?.substring(0, 4) }}</span>
+                </div>
+                <p class="bb-overview">{{ randMovie.overview?.substring(0, 150) }}{{ randMovie.overview && randMovie.overview.length > 150 ? '...' : '' }}</p>
+                <div class="bb-actions">
+                  <el-button round size="large" @click="fetchRandom">🔄 换一个</el-button>
+                  <el-button type="primary" round size="large" @click="goToDetail">查看详情 →</el-button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 空结果 -->
+          <div v-else-if="bbPhase === 'reveal' && !randMovie" class="bb-spinning">
+            <p class="bb-title">暂无推荐</p>
+            <p class="bb-hint">去标记几部喜欢的电影吧</p>
+          </div>
         </div>
-      </div>
-      <div v-else class="rand-loading">
-        <p>暂无推荐，去标记几部电影吧</p>
-      </div>
-    </el-dialog>
+      </Transition>
+    </Teleport>
 
     <!-- 热门电影 -->
     <section class="popular-section">
@@ -137,7 +163,8 @@ const recError = ref('')
 // === 盲盒 ===
 const showRandomBox = ref(false)
 const randMovie = ref<Movie | null>(null)
-const randLoading = ref(false)
+const bbPhase = ref<'spinning' | 'reveal'>('spinning')
+const bbFlipped = ref(false)
 
 // === 热门区域 ===
 const sortBy = ref('popularity.desc')
@@ -174,14 +201,36 @@ async function fetchRecommendations() {
   }
 }
 
-async function fetchRandom() {
-  randLoading.value = true
+async function openBlindBox() {
+  if (showRandomBox.value) return
+  showRandomBox.value = true
+  bbPhase.value = 'spinning'
+  bbFlipped.value = false
   randMovie.value = null
-  try {
-    randMovie.value = await recommendApi.getRandomPick()
-  } catch { /* no-op */ } finally {
-    randLoading.value = false
-  }
+
+  try { randMovie.value = await recommendApi.getRandomPick() } catch { /* no-op */ }
+
+  setTimeout(() => {
+    bbPhase.value = 'reveal'
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { bbFlipped.value = true })
+    })
+  }, 1500)
+}
+
+async function fetchRandom() {
+  bbPhase.value = 'spinning'
+  bbFlipped.value = false
+  randMovie.value = null
+
+  try { randMovie.value = await recommendApi.getRandomPick() } catch { /* no-op */ }
+
+  setTimeout(() => {
+    bbPhase.value = 'reveal'
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { bbFlipped.value = true })
+    })
+  }, 1200)
 }
 
 function goToDetail() {
@@ -325,27 +374,111 @@ onBeforeUnmount(() => observer?.disconnect())
 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-// 盲盒弹窗
-.rand-loading {
-  text-align: center; padding: 40px; color: var(--text-muted);
-  .loading-icon { font-size: 40px; animation: spin 1s linear infinite; }
-  p { margin-top: 12px; }
-}
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-.rand-result { text-align: center; }
-.rand-poster {
-  width: 200px; border-radius: 12px; display: block; margin: 0 auto 20px;
-}
-.rand-placeholder {
-  width: 200px; aspect-ratio: 2/3; margin: 0 auto 20px;
-  background-color: var(--bg-secondary); border-radius: 12px;
+// 盲盒全屏遮罩
+.blindbox-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0, 0, 0, 0.92);
   display: flex; align-items: center; justify-content: center;
-  color: var(--text-muted);
+  flex-direction: column;
 }
-.rand-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
-.rand-overview { color: var(--text-secondary); font-size: 13px; line-height: 1.6; margin-bottom: 24px; }
-.rand-actions { display: flex; gap: 12px; justify-content: center; }
+
+.bb-close {
+  position: absolute; top: 24px; right: 32px;
+  background: none; border: none; color: var(--text-muted);
+  font-size: 28px; cursor: pointer; z-index: 1;
+  &:hover { color: #fff; }
+}
+
+// 进入/离开动画
+.blindbox-enter-active { transition: opacity 0.4s; }
+.blindbox-leave-active { transition: opacity 0.3s; }
+.blindbox-enter-from, .blindbox-leave-to { opacity: 0; }
+
+// 抽取中
+.bb-spinning { text-align: center; }
+.bb-dice {
+  font-size: 80px; animation: dice-bounce 0.6s infinite alternate;
+}
+@keyframes dice-bounce {
+  from { transform: translateY(0) rotate(-10deg); }
+  to { transform: translateY(-16px) rotate(10deg); }
+}
+.bb-title {
+  font-size: 24px; font-weight: 700; color: var(--accent-gold); margin: 24px 0;
+  animation: glow-pulse 1.5s infinite;
+}
+@keyframes glow-pulse {
+  0%, 100% { opacity: 1; text-shadow: 0 0 8px rgba(230, 185, 30, 0.3); }
+  50% { opacity: 0.7; text-shadow: 0 0 20px rgba(230, 185, 30, 0.6); }
+}
+.bb-hint { color: var(--text-muted); font-size: 15px; margin-top: 12px; }
+
+.bb-swirl {
+  display: flex; gap: 10px; justify-content: center; margin-top: 20px;
+}
+.swirl-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background-color: var(--accent-gold);
+  animation: dot-fade 1s infinite alternate;
+}
+@keyframes dot-fade {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0.2; transform: scale(0.6); }
+}
+
+// 卡片翻转
+.bb-card {
+  perspective: 1000px;
+  width: 300px; height: 500px;
+}
+.bb-card-inner {
+  position: relative; width: 100%; height: 100%;
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+.bb-card.flipped .bb-card-inner { transform: rotateY(180deg); }
+
+.bb-card-front, .bb-card-back {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.bb-card-front {
+  background: linear-gradient(135deg, var(--bg-card), var(--bg-secondary));
+  border: 2px solid var(--accent-gold);
+}
+.bb-question {
+  font-size: 80px; color: var(--accent-gold); font-weight: 700;
+  animation: glow-pulse 1.5s infinite;
+}
+.bb-card-back {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  transform: rotateY(180deg);
+  flex-direction: column; align-items: center; padding: 24px;
+  overflow-y: auto; text-align: center;
+}
+.bb-poster {
+  width: 180px; border-radius: 10px; margin-bottom: 16px; display: block;
+}
+.bb-placeholder {
+  width: 180px; aspect-ratio: 2/3; border-radius: 10px; margin-bottom: 16px;
+  background-color: var(--bg-secondary);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); font-size: 14px;
+}
+.bb-movie-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.bb-meta {
+  display: flex; gap: 12px; margin-bottom: 12px;
+  font-size: 13px; color: var(--text-muted);
+  .bb-score { color: var(--accent-gold); font-weight: 600; }
+}
+.bb-overview {
+  font-size: 12px; color: var(--text-secondary); line-height: 1.6;
+  margin-bottom: 20px;
+}
+.bb-actions { display: flex; gap: 10px; }
 
 // 热门
 .filter-bar {
