@@ -160,9 +160,9 @@ async function loadAll() {
       try {
         myRecord.value = await recordApi.getMyRecordForMovie(tmdbId)
         if (myRecord.value) {
-          myRating.value = r.rating || 0
-          draftRating.value = r.rating || 0
-          myComment.value = r.comment || ''
+          myRating.value = myRecord.value.rating || 0
+          draftRating.value = myRecord.value.rating || 0
+          myComment.value = myRecord.value.comment || ''
         }
       } catch { /* no-op */ }
     }

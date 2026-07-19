@@ -4,6 +4,9 @@ PRD.md
 TECH_DESIGN.md
 research.md
 
+# ===== Docker 环境变量（含敏感配置） =====
+.env
+
 # ===== 全局 =====
 .DS_Store
 Thumbs.db

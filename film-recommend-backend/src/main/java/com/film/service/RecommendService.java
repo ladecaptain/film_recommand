@@ -20,14 +20,14 @@ public class RecommendService {
 
     private final RecordMapper recordMapper;
     private final MovieMapper movieMapper;
-    private final TmdbService tmdbService;
+    private final CacheService cacheService;
     private final TmdbApiUtil tmdbApiUtil;
 
     public RecommendService(RecordMapper recordMapper, MovieMapper movieMapper,
-                            TmdbService tmdbService, TmdbApiUtil tmdbApiUtil) {
+                            CacheService cacheService, TmdbApiUtil tmdbApiUtil) {
         this.recordMapper = recordMapper;
         this.movieMapper = movieMapper;
-        this.tmdbService = tmdbService;
+        this.cacheService = cacheService;
         this.tmdbApiUtil = tmdbApiUtil;
     }
 
@@ -37,7 +37,7 @@ public class RecommendService {
         if (userId == null) {
             result.put("reason", "为你精选热门佳作");
             result.put("topGenres", Collections.emptyList());
-            result.put("movies", enrichAndLimit(tmdbService.getPopularMovies(1), 10));
+            result.put("movies", enrichAndLimit(cacheService.getPopularMovies(1), 10));
             return result;
         }
 
@@ -53,7 +53,7 @@ public class RecommendService {
         if (watched.isEmpty() && wishlist.isEmpty()) {
             result.put("reason", "为你精选热门佳作");
             result.put("topGenres", Collections.emptyList());
-            result.put("movies", enrichAndLimit(tmdbService.getPopularMovies(1), 10));
+            result.put("movies", enrichAndLimit(cacheService.getPopularMovies(1), 10));
             return result;
         }
 
@@ -85,7 +85,7 @@ public class RecommendService {
         if (topGenres.isEmpty()) {
             result.put("reason", "为你精选热门佳作");
             result.put("topGenres", Collections.emptyList());
-            result.put("movies", enrichAndLimit(tmdbService.getPopularMovies(1), 10));
+            result.put("movies", enrichAndLimit(cacheService.getPopularMovies(1), 10));
             return result;
         }
 
@@ -99,7 +99,7 @@ public class RecommendService {
         for (String genre : topGenres) {
             Integer genreId = TmdbService.GENRE_ID_MAP.get(genre);
             if (genreId == null) continue;
-            List<Movie> list = tmdbService.discoverMovies(
+            List<Movie> list = cacheService.getDiscoverMovies(
                 String.valueOf(genreId), "vote_average.desc", null, 1);
             for (Movie m : list) {
                 if (m.getVoteAverage() != null
@@ -180,7 +180,7 @@ public class RecommendService {
 
     public Movie getRandomPick(Long userId, Set<Long> excludeTmdbIds) {
         if (userId == null) {
-            List<Movie> popular = tmdbService.getPopularMovies(1);
+            List<Movie> popular = cacheService.getPopularMovies(1);
             popular.removeIf(m -> excludeTmdbIds.contains(m.getTmdbId()));
             if (!popular.isEmpty()) {
                 Movie m = popular.get((int) (Math.random() * popular.size()));
@@ -225,7 +225,7 @@ public class RecommendService {
             Integer genreId = TmdbService.GENRE_ID_MAP.get(genre);
             if (genreId == null) continue;
             for (int page = 1; page <= 3; page++) {
-                List<Movie> list = tmdbService.discoverMovies(
+                List<Movie> list = cacheService.getDiscoverMovies(
                     String.valueOf(genreId), "popularity.desc", null, page);
                 for (Movie m : list) {
                     if (m.getVoteAverage() != null
@@ -241,7 +241,7 @@ public class RecommendService {
         // 候选不够则补充热门
         if (pool.size() < 10) {
             for (int page = 1; page <= 2; page++) {
-                for (Movie m : tmdbService.getPopularMovies(page)) {
+                for (Movie m : cacheService.getPopularMovies(page)) {
                     if (!excludeLocalIds.contains(m.getId())
                         && !excludeTmdbIds.contains(m.getTmdbId())) {
                         pool.putIfAbsent(m.getTmdbId(), m);
@@ -251,7 +251,7 @@ public class RecommendService {
         }
 
         if (pool.isEmpty()) {
-            List<Movie> popular = tmdbService.getPopularMovies(1);
+            List<Movie> popular = cacheService.getPopularMovies(1);
             if (!popular.isEmpty()) {
                 Movie m = popular.get((int) (Math.random() * popular.size()));
                 m = enrichWithDetail(m);
@@ -269,7 +269,7 @@ public class RecommendService {
     }
 
     private Movie enrichWithDetail(Movie m) {
-        Movie detail = tmdbService.getMovieDetail(m.getTmdbId());
+        Movie detail = cacheService.getMovieDetail(m.getTmdbId());
         if (detail != null) {
             if (detail.getOverview() != null && !detail.getOverview().isEmpty()) {
                 m.setOverview(detail.getOverview());

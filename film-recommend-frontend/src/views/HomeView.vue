@@ -187,7 +187,7 @@ const displaySlides = computed(() => {
   const len = recMovies.value.length
   if (len === 0) return []
   const slides: { movie: Movie; pos: number }[] = []
-  for (let offset = -5; offset <= 4; offset++) {
+  for (let offset = -4; offset <= 4; offset++) {
     let idx = (activeIndex.value + offset) % len
     if (idx < 0) idx += len
     slides.push({ movie: recMovies.value[idx], pos: offset })
@@ -385,14 +385,15 @@ onBeforeUnmount(() => {
 // === 推荐轮播 ===
 .carousel-wrap {
   display: flex; flex-direction: column; align-items: center;
-  padding: 0 40px; margin-bottom: 40px;
+  margin-bottom: 40px;
 }
 
 .carousel-stage {
   position: relative;
-  height: 400px; overflow: hidden;
+  height: 440px; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
-  width: 100%;
+  width: 100%; max-width: 1200px;
+  padding: 0 48px;
 }
 
 .carousel-track {
@@ -437,7 +438,7 @@ onBeforeUnmount(() => {
 
 .ci-poster {
   position: relative; background-color: var(--bg-secondary);
-  img { width: 100%; display: block; }
+  img { width: 100%; display: block; aspect-ratio: 2/3; object-fit: cover; }
   .ci-placeholder {
     aspect-ratio: 2/3; display: flex; align-items: center;
     justify-content: center; color: var(--text-muted); font-size: 14px;
@@ -477,7 +478,7 @@ onBeforeUnmount(() => {
 
 // 圆点
 .carousel-dots {
-  display: flex; gap: 8px; margin-top: 10px; 
+  display: flex; gap: 8px; margin-top: 24px; justify-content: center;
 }
 .dot {
   width: 8px; height: 8px; border-radius: 50%;

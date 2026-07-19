@@ -11,6 +11,17 @@ spring:
       maximum-pool-size: 10
       minimum-idle: 5
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
