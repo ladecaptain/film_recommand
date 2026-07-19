@@ -46,3 +46,5 @@ tmdb:
   access-token: ${TMDB_ACCESS_TOKEN:your-tmdb-access-token}
   base-url: https://api.themoviedb.org/3
   image-base-url: https://image.tmdb.org/t/p
+  proxy-host: ${TMDB_PROXY_HOST:}
+  proxy-port: ${TMDB_PROXY_PORT:0}

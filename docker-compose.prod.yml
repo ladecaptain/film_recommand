@@ -35,6 +35,8 @@ services:
     depends_on:
       - mysql
       - redis
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8080:8080"
     environment:
@@ -44,6 +46,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       TMDB_ACCESS_TOKEN: ${TMDB_ACCESS_TOKEN}
+      TMDB_PROXY_HOST: ${TMDB_PROXY_HOST:-}
+      TMDB_PROXY_PORT: ${TMDB_PROXY_PORT:-0}
       REDIS_HOST: redis
 
   frontend:
